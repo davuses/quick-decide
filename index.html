@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f6f2" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#141517" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Quick Decide</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <h1>Quick Decide</h1>
+      </div>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle color theme" title="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <nav class="mode-tabs" role="tablist" aria-label="Decision mode">
+      <button class="tab-btn is-active" role="tab" aria-selected="true" aria-controls="panel-pick" id="tab-pick" data-mode="pick" type="button">
+        Picker
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-coin" id="tab-coin" data-mode="coin" type="button">
+        Coin
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-dice" id="tab-dice" data-mode="dice" type="button">
+        Dice
+      </button>
+    </nav>
+
+    <main class="main-content">
+      <!-- PICKER PANEL -->
+      <section id="panel-pick" class="mode-panel is-active" role="tabpanel" aria-labelledby="tab-pick">
+        <div class="input-card">
+          <div class="textarea-wrap">
+            <label for="sentence-input" class="sr-only">Type or dictate your choices</label>
+            <textarea
+              id="sentence-input"
+              rows="2"
+              placeholder="Type or dictate: Should I eat ramen, tacos, or sushi tonight?"
+              autocomplete="off"
+              autocorrect="on"
+              spellcheck="true"
+            ></textarea>
+            <button id="mic-btn" class="mic-btn" type="button" aria-label="Dictate sentence" title="Dictate">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" x2="12" y1="19" y2="22"></line>
+              </svg>
+            </button>
+          </div>
+          <p id="mic-status" class="helper-note" aria-live="polite"></p>
+        </div>
+
+        <div class="choices-section">
+          <div class="section-header">
+            <span class="section-label">Choices <span id="choice-count" class="count-pill">0</span></span>
+            <div class="section-actions">
+              <button id="save-list-btn" class="text-btn" type="button" hidden>Save list</button>
+              <button id="clear-choices-btn" class="text-btn" type="button" hidden>Clear</button>
+            </div>
+          </div>
+
+          <div id="choice-chips" class="chip-list" aria-live="polite"></div>
+
+          <form id="manual-add-form" class="manual-add">
+            <input
+              id="manual-option-input"
+              type="text"
+              placeholder="Add an option manually..."
+              autocomplete="off"
+              maxlength="120"
+            />
+            <button class="add-btn" type="submit" aria-label="Add option">Add</button>
+          </form>
+        </div>
+
+        <div id="saved-lists-block" class="saved-lists-block" hidden>
+          <span class="section-label">Saved lists</span>
+          <div id="saved-lists" class="saved-lists"></div>
+        </div>
+
+        <div id="pick-result-card" class="result-card" hidden aria-live="assertive">
+          <span class="result-eyebrow">Picked for you</span>
+          <div id="pick-result-value" class="result-value"></div>
+          <p class="gut-check">Relieved, or secretly hoping for another? Either way, you have your answer.</p>
+          <button id="pick-again-btn" class="text-btn" type="button">Pick again</button>
+        </div>
+      </section>
+
+      <!-- COIN PANEL -->
+      <section id="panel-coin" class="mode-panel" role="tabpanel" aria-labelledby="tab-coin" hidden>
+        <div class="coin-labels">
+          <input id="coin-heads-input" type="text" placeholder="Heads" maxlength="40" aria-label="Heads option label" />
+          <span class="vs-badge" aria-hidden="true">vs</span>
+          <input id="coin-tails-input" type="text" placeholder="Tails" maxlength="40" aria-label="Tails option label" />
+        </div>
+
+        <div class="stage">
+          <button id="coin-stage-btn" class="coin-wrap" type="button" aria-label="Flip coin">
+            <div id="coin-el" class="coin">
+              <div class="coin-face coin-front">H</div>
+              <div class="coin-face coin-back">T</div>
+            </div>
+          </button>
+        </div>
+
+        <div id="coin-result-card" class="result-card" hidden aria-live="assertive">
+          <span class="result-eyebrow">Coin landed on</span>
+          <div id="coin-result-value" class="result-value"></div>
+          <p class="gut-check">Notice your first reaction—if you didn't like it, you already know what you wanted.</p>
+        </div>
+      </section>
+
+      <!-- DICE PANEL -->
+      <section id="panel-dice" class="mode-panel" role="tabpanel" aria-labelledby="tab-dice" hidden>
+        <div class="dice-presets" role="group" aria-label="Die sides">
+          <button class="pill-btn" data-sides="4" type="button">d4</button>
+          <button class="pill-btn is-selected" data-sides="6" type="button">d6</button>
+          <button class="pill-btn" data-sides="8" type="button">d8</button>
+          <button class="pill-btn" data-sides="10" type="button">d10</button>
+          <button class="pill-btn" data-sides="12" type="button">d12</button>
+          <button class="pill-btn" data-sides="20" type="button">d20</button>
+          <label class="custom-sides">
+            <span>1–</span>
+            <input id="custom-sides-input" type="number" min="2" max="999" placeholder="N" aria-label="Custom max number" />
+          </label>
+        </div>
+
+        <div class="stage">
+          <button id="dice-stage-btn" class="die-wrap" type="button" aria-label="Roll die">
+            <div id="die-el" class="die">
+              <div id="die-face" class="die-face"></div>
+            </div>
+          </button>
+        </div>
+
+        <div id="dice-result-card" class="result-card" hidden aria-live="assertive">
+          <span id="dice-result-eyebrow" class="result-eyebrow">Rolled d6</span>
+          <div id="dice-result-value" class="result-value"></div>
+          <p class="gut-check">Go with it and save your energy for decisions that matter.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="action-dock">
+      <button id="coin-shortcut-btn" class="secondary-action" type="button" hidden>
+        Flip coin for these 2 →
+      </button>
+      <button id="primary-action-btn" class="primary-action" type="button">
+        Decide
+      </button>
+    </footer>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

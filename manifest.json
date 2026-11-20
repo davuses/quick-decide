@@ -1,0 +1,17 @@
+{
+  "name": "Quick Decide",
+  "short_name": "Quick Decide",
+  "description": "Fast, offline decision helper to break low-stakes decision fatigue.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#1d6f5f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
