@@ -19,9 +19,46 @@ function randomInt(max) {
   return value % max;
 }
 
-function haptic(ms = 14) {
+// Tactile haptic engine:
+// - Android/Chrome: navigator.vibrate with distinct tap / tick / lock patterns
+// - iOS Safari 17.4+: native Taptic Engine click via hidden <input type="checkbox" switch>
+let iosHapticLabel = null;
+function initIosHapticSwitch() {
+  if (typeof document === 'undefined') return;
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.setAttribute('switch', '');
+  input.id = 'qd-ios-haptic';
+  input.tabIndex = -1;
+  input.setAttribute('aria-hidden', 'true');
+  input.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;left:-9999px;';
+
+  const label = document.createElement('label');
+  label.htmlFor = input.id;
+  label.setAttribute('aria-hidden', 'true');
+  label.style.cssText = 'position:fixed;opacity:0;pointer-events:none;width:1px;height:1px;left:-9999px;';
+
+  document.body.append(input, label);
+  iosHapticLabel = label;
+}
+
+function haptic(kind = 'tap') {
+  const patterns = {
+    tap: 8,
+    tick: 6,
+    launch: [14],
+    lock: [18, 36, 28],
+  };
+  const pattern = patterns[kind] ?? 10;
+
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-    navigator.vibrate(ms);
+    navigator.vibrate(pattern);
+    return;
+  }
+
+  // Fallback for iOS Safari 17.4+ Taptic feedback on user-gesture taps
+  if (iosHapticLabel) {
+    iosHapticLabel.click();
   }
 }
 
@@ -115,6 +152,7 @@ function initTheme() {
 }
 
 els.themeToggle.addEventListener('click', () => {
+  haptic('tap');
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   localStorage.setItem(STORAGE_KEYS.theme, next);
@@ -137,7 +175,10 @@ function setMode(mode) {
 }
 
 els.tabs.forEach((tab) => {
-  tab.addEventListener('click', () => setMode(tab.dataset.mode));
+  tab.addEventListener('click', () => {
+    haptic('tap');
+    setMode(tab.dataset.mode);
+  });
 });
 
 // Dock Button State
@@ -434,7 +475,7 @@ function runPicker() {
   if (state.locks.pick || state.choices.length < 2 || state.isAnimating) return;
   state.isAnimating = true;
   updateDock();
-  haptic(12);
+  haptic('launch');
 
   const winnerIndex = randomInt(state.choices.length);
   const steps = 6;
@@ -443,6 +484,7 @@ function runPicker() {
   const timer = setInterval(() => {
     tick += 1;
     if (tick < steps) {
+      haptic('tick');
       renderPicker(randomInt(state.choices.length));
     } else {
       clearInterval(timer);
@@ -453,13 +495,14 @@ function runPicker() {
         winner: state.choices[winnerIndex],
       };
       persistLocks();
-      haptic(20);
+      haptic('lock');
       renderPicker();
     }
-  }, 50);
+  }, 55);
 }
 
 function resetPickerForNewDecision() {
+  haptic('tap');
   state.locks.pick = null;
   state.choices = [];
   els.sentenceInput.value = '';
@@ -471,6 +514,7 @@ function resetPickerForNewDecision() {
 // 2-choice shortcut to Coin Flip
 els.coinShortcutBtn.addEventListener('click', () => {
   if (state.locks.pick || state.choices.length !== 2) return;
+  haptic('tap');
   state.locks.coin = null;
   persistLocks();
   els.coinHeadsInput.value = state.choices[0];
@@ -485,8 +529,11 @@ function runCoinFlip() {
   if (state.locks.coin || state.isAnimating) return;
   state.isAnimating = true;
   els.coinStageBtn.disabled = true;
+  els.coinStageBtn.classList.remove('is-tossing');
+  void els.coinStageBtn.offsetWidth;
+  els.coinStageBtn.classList.add('is-tossing');
   updateDock();
-  haptic(14);
+  haptic('launch');
 
   const isHeads = randomInt(2) === 0;
   const baseSpins = Math.floor(state.coinRotation / 360) * 360 + 1080;
@@ -496,6 +543,7 @@ function runCoinFlip() {
   setTimeout(() => {
     const headsLabel = els.coinHeadsInput.value.trim() || 'Heads';
     const tailsLabel = els.coinTailsInput.value.trim() || 'Tails';
+    els.coinStageBtn.classList.remove('is-tossing');
     state.isAnimating = false;
     state.locks.coin = {
       headsLabel,
@@ -504,12 +552,13 @@ function runCoinFlip() {
       winner: isHeads ? headsLabel : tailsLabel,
     };
     persistLocks();
-    haptic(20);
+    haptic('lock');
     renderCoin();
   }, 560);
 }
 
 function resetCoinForNewDecision() {
+  haptic('tap');
   state.locks.coin = null;
   els.coinHeadsInput.value = '';
   els.coinTailsInput.value = '';
@@ -522,6 +571,7 @@ els.coinStageBtn.addEventListener('click', runCoinFlip);
 // Dice Selection & Roll (locks result — no re-rolling)
 function selectDiceSides(sides, isCustom = false) {
   if (state.locks.dice) return;
+  haptic('tap');
   state.diceSides = sides;
   els.dicePresetBtns.forEach((btn) => {
     btn.classList.toggle('is-selected', !isCustom && Number(btn.dataset.sides) === sides);
@@ -551,13 +601,14 @@ function runDiceRoll() {
   void els.dieEl.offsetWidth;
   els.dieEl.classList.add('is-rolling');
   updateDock();
-  haptic(14);
+  haptic('launch');
 
   const finalValue = randomInt(state.diceSides) + 1;
   let tick = 0;
   const timer = setInterval(() => {
     tick += 1;
     if (tick < 5) {
+      haptic('tick');
       renderDieFace(randomInt(state.diceSides) + 1, state.diceSides);
     } else {
       clearInterval(timer);
@@ -568,13 +619,14 @@ function runDiceRoll() {
         value: finalValue,
       };
       persistLocks();
-      haptic(20);
+      haptic('lock');
       renderDice();
     }
-  }, 65);
+  }, 68);
 }
 
 function resetDiceForNewDecision() {
+  haptic('tap');
   state.locks.dice = null;
   persistLocks();
   renderDice();
@@ -605,6 +657,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 
 // Init (restore any persisted locked decisions so refreshing cannot undo a pick)
 initTheme();
+initIosHapticSwitch();
 initSpeechDictation();
 renderPicker();
 renderCoin();

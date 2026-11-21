@@ -1,4 +1,4 @@
-const CACHE_NAME = 'quick-decide-v2';
+const CACHE_NAME = 'quick-decide-v3';
 const ASSETS = [
   './',
   './index.html',
