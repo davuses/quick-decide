@@ -365,7 +365,7 @@ function renderDice() {
   updateDock();
 }
 
-// Live Offline Sentence Parsing
+// Live Offline Sentence Parsing (handles typing, paste, and native mobile keyboard dictation)
 function syncFromSentence() {
   if (state.locks.pick) return;
   const text = els.sentenceInput.value;
@@ -374,6 +374,8 @@ function syncFromSentence() {
 }
 
 els.sentenceInput.addEventListener('input', syncFromSentence);
+els.sentenceInput.addEventListener('change', syncFromSentence);
+els.sentenceInput.addEventListener('compositionend', syncFromSentence);
 
 // Manual Option Add
 els.manualAddForm.addEventListener('submit', (e) => {
@@ -407,65 +409,115 @@ els.saveListBtn.addEventListener('click', () => {
   renderSavedLists();
 });
 
-// Speech Dictation (Web Speech API)
+// Speech Dictation (mobile-hardened Web Speech API + native keyboard dictation fallback)
 function initSpeechDictation() {
   const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  if (!SpeechRecognition) {
-    els.micBtn.hidden = true;
-    return;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.lang = navigator.language || 'en-US';
-  recognition.interimResults = true;
-  recognition.continuous = false;
-
+  let activeRecognition = null;
   let isListening = false;
 
-  recognition.addEventListener('start', () => {
-    isListening = true;
-    els.micBtn.classList.add('is-listening');
-    els.micStatus.textContent = 'Listening… say your choices (e.g. "ramen, tacos, or sushi")';
-  });
-
-  recognition.addEventListener('result', (event) => {
-    if (state.locks.pick) return;
-    let transcript = '';
-    for (let i = 0; i < event.results.length; i += 1) {
-      transcript += event.results[i][0].transcript;
-    }
-    els.sentenceInput.value = transcript.trim();
-    syncFromSentence();
-  });
-
-  recognition.addEventListener('error', (event) => {
-    els.micStatus.textContent =
-      event.error === 'not-allowed'
-        ? 'Microphone permission blocked — you can still type or use your phone keyboard mic.'
-        : 'Could not hear clearly — try again or type your choices.';
-  });
-
-  recognition.addEventListener('end', () => {
+  function resetMicUI() {
     isListening = false;
+    activeRecognition = null;
     els.micBtn.classList.remove('is-listening');
-    if (els.micStatus.textContent.startsWith('Listening')) {
-      els.micStatus.textContent = '';
-    }
-  });
+    els.micBtn.setAttribute('aria-pressed', 'false');
+  }
 
   els.micBtn.addEventListener('click', () => {
     if (state.locks.pick) return;
-    els.micStatus.textContent = '';
-    if (isListening) {
-      recognition.stop();
-    } else {
+
+    // If the browser (e.g., iOS Chrome/Firefox or in-app WebView) lacks Web Speech API,
+    // focus the text area so the user can tap their phone keyboard's native mic button.
+    if (!SpeechRecognition) {
+      els.sentenceInput.focus();
+      els.micStatus.textContent =
+        'This browser does not support in-page dictation — tap the mic on your phone keyboard.';
+      return;
+    }
+
+    if (isListening && activeRecognition) {
       try {
-        recognition.start();
+        activeRecognition.stop();
       } catch {
-        els.micStatus.textContent = 'Dictation unavailable right now — type or use keyboard mic.';
+        resetMicUI();
       }
+      return;
+    }
+
+    els.micStatus.textContent = '';
+
+    // Always instantiate a fresh SpeechRecognition object per tap (required on iOS Safari & Android Chrome)
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || 'en-US';
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    activeRecognition = recognition;
+    let finalTranscript = '';
+
+    recognition.addEventListener('start', () => {
+      isListening = true;
+      els.micBtn.classList.add('is-listening');
+      els.micBtn.setAttribute('aria-pressed', 'true');
+      els.micStatus.textContent = 'Listening… speak your options, then pause.';
+    });
+
+    recognition.addEventListener('result', (event) => {
+      if (state.locks.pick) return;
+      let interimTranscript = '';
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const chunk = event.results[i][0]?.transcript || '';
+        if (event.results[i].isFinal) {
+          finalTranscript += chunk;
+        } else {
+          interimTranscript += chunk;
+        }
+      }
+      const combined = (finalTranscript + interimTranscript).trim();
+      if (combined) {
+        els.sentenceInput.value = combined;
+        syncFromSentence();
+      }
+    });
+
+    recognition.addEventListener('error', (event) => {
+      const code = event.error || 'unknown';
+      const messages = {
+        'not-allowed':
+          'Microphone permission denied — allow mic access in browser settings, or use your keyboard mic.',
+        'service-not-allowed':
+          'Speech service blocked on this device — enable Dictation in phone settings, or use your keyboard mic.',
+        'audio-capture':
+          'No microphone detected — check if another app is using the mic.',
+        'no-speech':
+          'No speech heard — tap the mic and try again.',
+        network:
+          'Browser speech recognition needs an internet connection — type or use your keyboard mic.',
+      };
+      els.micStatus.textContent =
+        messages[code] ||
+        `Dictation error (${code}) — try again or tap your phone keyboard mic.`;
+      resetMicUI();
+    });
+
+    recognition.addEventListener('end', () => {
+      const wasListening = isListening;
+      resetMicUI();
+      if (wasListening && els.micStatus.textContent.startsWith('Listening')) {
+        els.micStatus.textContent = '';
+      }
+    });
+
+    // Call start() synchronously inside the tap handler so mobile Safari/Chrome accepts the gesture
+    try {
+      recognition.start();
+    } catch (err) {
+      resetMicUI();
+      els.sentenceInput.focus();
+      els.micStatus.textContent =
+        'Could not start mic — tap your phone keyboard mic to dictate instead.';
     }
   });
 }
