@@ -212,47 +212,8 @@ body {
   color: var(--text-muted);
 }
 
-.mic-btn {
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface-muted);
-  color: var(--text);
-  box-shadow: var(--key-shadow);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease, box-shadow 0.08s ease;
-}
-
-.mic-btn:active:not(:disabled) {
-  transform: translateY(2px);
-  box-shadow: var(--key-shadow-pressed);
-}
-
-.mic-btn.is-listening {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-}
-
-.helper-note {
-  margin: 6px 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  min-height: 0;
-}
-
-.helper-note:empty {
-  display: none;
+button {
+  touch-action: manipulation;
 }
 
 /* Choices Section */
@@ -354,7 +315,7 @@ body {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 .manual-add input:focus,
@@ -644,6 +605,7 @@ body {
   background: transparent;
   color: var(--text);
   font: inherit;
+  font-size: 1rem;
   font-weight: 650;
 }
 

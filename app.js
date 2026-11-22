@@ -113,8 +113,6 @@ const els = {
   },
   inputCard: document.querySelector('.input-card'),
   sentenceInput: document.getElementById('sentence-input'),
-  micBtn: document.getElementById('mic-btn'),
-  micStatus: document.getElementById('mic-status'),
   choiceCount: document.getElementById('choice-count'),
   choiceChips: document.getElementById('choice-chips'),
   saveListBtn: document.getElementById('save-list-btn'),
@@ -214,7 +212,6 @@ function renderPicker(highlightIndex = -1) {
 
   els.inputCard.classList.toggle('is-locked', locked);
   els.sentenceInput.disabled = locked;
-  els.micBtn.disabled = locked;
   els.manualAddForm.hidden = locked;
 
   els.choiceCount.textContent = String(state.choices.length);
@@ -409,119 +406,6 @@ els.saveListBtn.addEventListener('click', () => {
   renderSavedLists();
 });
 
-// Speech Dictation (mobile-hardened Web Speech API + native keyboard dictation fallback)
-function initSpeechDictation() {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  let activeRecognition = null;
-  let isListening = false;
-
-  function resetMicUI() {
-    isListening = false;
-    activeRecognition = null;
-    els.micBtn.classList.remove('is-listening');
-    els.micBtn.setAttribute('aria-pressed', 'false');
-  }
-
-  els.micBtn.addEventListener('click', () => {
-    if (state.locks.pick) return;
-
-    // If the browser (e.g., iOS Chrome/Firefox or in-app WebView) lacks Web Speech API,
-    // focus the text area so the user can tap their phone keyboard's native mic button.
-    if (!SpeechRecognition) {
-      els.sentenceInput.focus();
-      els.micStatus.textContent =
-        'This browser does not support in-page dictation — tap the mic on your phone keyboard.';
-      return;
-    }
-
-    if (isListening && activeRecognition) {
-      try {
-        activeRecognition.stop();
-      } catch {
-        resetMicUI();
-      }
-      return;
-    }
-
-    els.micStatus.textContent = '';
-
-    // Always instantiate a fresh SpeechRecognition object per tap (required on iOS Safari & Android Chrome)
-    const recognition = new SpeechRecognition();
-    recognition.lang = navigator.language || 'en-US';
-    recognition.interimResults = true;
-    recognition.continuous = false;
-    recognition.maxAlternatives = 1;
-
-    activeRecognition = recognition;
-    let finalTranscript = '';
-
-    recognition.addEventListener('start', () => {
-      isListening = true;
-      els.micBtn.classList.add('is-listening');
-      els.micBtn.setAttribute('aria-pressed', 'true');
-      els.micStatus.textContent = 'Listening… speak your options, then pause.';
-    });
-
-    recognition.addEventListener('result', (event) => {
-      if (state.locks.pick) return;
-      let interimTranscript = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const chunk = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) {
-          finalTranscript += chunk;
-        } else {
-          interimTranscript += chunk;
-        }
-      }
-      const combined = (finalTranscript + interimTranscript).trim();
-      if (combined) {
-        els.sentenceInput.value = combined;
-        syncFromSentence();
-      }
-    });
-
-    recognition.addEventListener('error', (event) => {
-      const code = event.error || 'unknown';
-      const messages = {
-        'not-allowed':
-          'Microphone permission denied — allow mic access in browser settings, or use your keyboard mic.',
-        'service-not-allowed':
-          'Speech service blocked on this device — enable Dictation in phone settings, or use your keyboard mic.',
-        'audio-capture':
-          'No microphone detected — check if another app is using the mic.',
-        'no-speech':
-          'No speech heard — tap the mic and try again.',
-        network:
-          'Browser speech recognition needs an internet connection — type or use your keyboard mic.',
-      };
-      els.micStatus.textContent =
-        messages[code] ||
-        `Dictation error (${code}) — try again or tap your phone keyboard mic.`;
-      resetMicUI();
-    });
-
-    recognition.addEventListener('end', () => {
-      const wasListening = isListening;
-      resetMicUI();
-      if (wasListening && els.micStatus.textContent.startsWith('Listening')) {
-        els.micStatus.textContent = '';
-      }
-    });
-
-    // Call start() synchronously inside the tap handler so mobile Safari/Chrome accepts the gesture
-    try {
-      recognition.start();
-    } catch (err) {
-      resetMicUI();
-      els.sentenceInput.focus();
-      els.micStatus.textContent =
-        'Could not start mic — tap your phone keyboard mic to dictate instead.';
-    }
-  });
-}
-
 // Picker Action (locks result — no pick-again or undo on the same choices)
 function runPicker() {
   if (state.locks.pick || state.choices.length < 2 || state.isAnimating) return;
@@ -558,7 +442,6 @@ function resetPickerForNewDecision() {
   state.locks.pick = null;
   state.choices = [];
   els.sentenceInput.value = '';
-  els.micStatus.textContent = '';
   persistLocks();
   renderPicker();
 }
@@ -710,7 +593,6 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
 // Init (restore any persisted locked decisions so refreshing cannot undo a pick)
 initTheme();
 initIosHapticSwitch();
-initSpeechDictation();
 renderPicker();
 renderCoin();
 renderDice();
