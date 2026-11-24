@@ -138,7 +138,6 @@ const els = {
   diceResultCard: document.getElementById('dice-result-card'),
   diceResultEyebrow: document.getElementById('dice-result-eyebrow'),
   diceResultValue: document.getElementById('dice-result-value'),
-  coinShortcutBtn: document.getElementById('coin-shortcut-btn'),
   primaryActionBtn: document.getElementById('primary-action-btn'),
 };
 
@@ -185,23 +184,16 @@ function updateDock() {
   els.primaryActionBtn.classList.toggle('is-secondary-mode', locked);
 
   if (state.mode === 'pick') {
-    if (locked) {
-      els.primaryActionBtn.textContent = 'Start New Decision';
-      els.primaryActionBtn.disabled = state.isAnimating;
-      els.coinShortcutBtn.hidden = true;
-    } else {
-      els.primaryActionBtn.textContent = 'Decide';
-      els.primaryActionBtn.disabled = state.choices.length < 2 || state.isAnimating;
-      els.coinShortcutBtn.hidden = state.choices.length !== 2;
-    }
+    els.primaryActionBtn.textContent = locked ? 'Start New Decision' : 'Decide';
+    els.primaryActionBtn.disabled = locked
+      ? state.isAnimating
+      : state.choices.length < 2 || state.isAnimating;
   } else if (state.mode === 'coin') {
     els.primaryActionBtn.textContent = locked ? 'Start New Flip' : 'Flip Coin';
     els.primaryActionBtn.disabled = state.isAnimating;
-    els.coinShortcutBtn.hidden = true;
   } else {
     els.primaryActionBtn.textContent = locked ? 'Start New Roll' : `Roll d${state.diceSides}`;
     els.primaryActionBtn.disabled = state.isAnimating;
-    els.coinShortcutBtn.hidden = true;
   }
 }
 
@@ -445,19 +437,6 @@ function resetPickerForNewDecision() {
   persistLocks();
   renderPicker();
 }
-
-// 2-choice shortcut to Coin Flip
-els.coinShortcutBtn.addEventListener('click', () => {
-  if (state.locks.pick || state.choices.length !== 2) return;
-  haptic('tap');
-  state.locks.coin = null;
-  persistLocks();
-  els.coinHeadsInput.value = state.choices[0];
-  els.coinTailsInput.value = state.choices[1];
-  setMode('coin');
-  renderCoin();
-  runCoinFlip();
-});
 
 // Coin Flip Action (locks result — no re-flipping the same coin)
 function runCoinFlip() {
